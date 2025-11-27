@@ -5,9 +5,19 @@ for the Business Intelligence Dashboard.
 
 import pandas as pd
 
-    
-# Load and clean data from CSV or Excel file passed from Gradio file upload
 def load_clean_data(file):
+    """
+    Load and clean data from CSV or Excel file.
+
+    Args:
+        file: Uploaded file object from Gradio.
+    Returns:
+        data: Cleaned pandas DataFrame or None if there are any errors
+        message: Status message regarding the data loading process.
+    """
+
+    data = None
+    message = ""
 
     try:
         if file.name.endswith('.csv'):
@@ -16,9 +26,12 @@ def load_clean_data(file):
             data = pd.read_excel(file.name)
         else:
             raise ValueError("Unsupported file format. Please upload a CSV or Excel file.")
+    except ValueError as e:
+        message = str(e)
+        return data, message
     except Exception as e:
-        print(f"Error loading data: {e}")
-        data = None
+        message = "No file uploaded. Please upload a valid CSV or Excel file."
+        return data, message
     
     if data is not None:  
         # Fill missing values with column mean for numeric columns
@@ -28,12 +41,26 @@ def load_clean_data(file):
 
         # Drop rows with any remaining missing values
         data = data.dropna().reset_index(drop=True)
-        return data
+        message = "Data loaded and cleaned successfully."
+        return data, message
     else:
-        print("Need to upload valid data file!")
+        message = "Failed to load and clean data."
+        return data, message
 
-# Diplay basic info about dataset
 def get_data_info(data):
+    """
+    Get basic information about the dataset.
+
+    Args:
+        data: pandas DataFrame
+    Returns:
+        A tuple containing:
+            - Number of rows
+            - Number of columns
+            - List of column names
+            - Dictionary of data types for each column
+        None if data is None
+    """
     if data is not None:
         num_rows = data.shape[0]
         num_cols = data.shape[1]
@@ -44,8 +71,21 @@ def get_data_info(data):
     else:
         return None
 
-# Show Data Preview
 def preview_data(data, num_rows=5, first=True, last=False):
+    """
+    Preview first and/or last rows of the dataset.
+
+    Args:
+        data: pandas DataFrame
+        num_rows: Number of rows to preview from start/end
+        first: Boolean indicating whether to return first rows
+        last: Boolean indicating whether to return last rows
+    Returns:
+        A tuple containing:
+            - DataFrame of first rows (or None)
+            - DataFrame of last rows (or None)  
+    """
+
     first_rows = None
     last_rows = None
     if data is not None:
@@ -55,7 +95,7 @@ def preview_data(data, num_rows=5, first=True, last=False):
             last_rows = data.tail(num_rows)   
         return first_rows, last_rows
     else:
-        return None
+        return None, None
     
 
 
