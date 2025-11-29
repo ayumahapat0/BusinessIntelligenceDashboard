@@ -18,6 +18,7 @@ def load_clean_data(file):
 
     data = None
     message = ""
+    missing_values = {}
 
     try:
         if file.name.endswith('.csv'):
@@ -28,13 +29,15 @@ def load_clean_data(file):
             raise ValueError("Unsupported file format. Please upload a CSV or Excel file.")
     except ValueError as e:
         message = str(e)
-        return data, message
+        return data, message, missing_values
     except Exception as e:
         message = "No file uploaded. Please upload a valid CSV or Excel file."
-        return data, message
+        return data, message, missing_values
     
-    if data is not None:  
-        # Fill missing values with column mean for numeric columns
+    if data is not None:
+        # Find missing values
+        missing_values = data.isnull().sum().to_dict()
+
         numeric_cols = data.select_dtypes(include=['number']).columns
         for col in numeric_cols:
             data[col] = data[col].fillna(data[col].mean())
@@ -42,7 +45,7 @@ def load_clean_data(file):
         # Drop rows with any remaining missing values
         data = data.dropna().reset_index(drop=True)
         message = "Data loaded and cleaned successfully."
-        return data, message
+        return data, message, missing_values
     else:
         message = "Failed to load and clean data."
         return data, message

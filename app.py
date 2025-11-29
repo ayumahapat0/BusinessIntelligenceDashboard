@@ -1,6 +1,7 @@
 import gradio as gr
 import pandas as pd
 import data_processor
+import utils
 
 """
 This is the gradio interface
@@ -13,6 +14,10 @@ def create_dashboard():
         
         df_state = gr.State(None)  # To hold the DataFrame across tabs
 
+        file_input = gr.State(None)  # To hold uploaded file info
+
+        missing_values = gr.State(None)  # To hold missing values info
+
         def load_data(file_input):
             """
             Load and clean data using data_processor module.
@@ -24,12 +29,12 @@ def create_dashboard():
                 string: Status message regarding the data loading process.
             """
             
-            data, string = data_processor.load_clean_data(file_input)
+            data, string, missing_values = data_processor.load_clean_data(file_input)
             
             if data is None:
-                return data, string
+                return data, string, missing_values
             
-            return data, "Data loaded successfully."
+            return data, "Data loaded successfully.", missing_values
         
         def display_data_info(data):
             """
@@ -73,6 +78,58 @@ def create_dashboard():
                 return None, None
             return first, last
         
+        def compute_statistics(data, missing_values):
+            """
+            Compute and return summary statistics for the dataset.
+            Args:
+                data: pandas DataFrame
+            Returns:
+                3 strings containing summary statistics for numeric and categorical columns.
+            """
+            if data is None:
+                return "No data loaded.", "No data loaded.", "No data loaded.", None
+
+            numeric_stats = {}
+            categoric_stats = {}
+
+            for col in data.columns:
+                if col in data.select_dtypes(include=['number']).columns:
+                    stats = utils.compute_numeric_stats(data, col)
+                    numeric_stats[col] = stats
+                elif col in data.select_dtypes(include=['object', 'category']).columns:
+                    stats = utils.compute_categoric_stats(data, col)
+                    categoric_stats[col] = stats
+            
+            numeric = ""
+            for col, stats in numeric_stats.items():
+                numeric += f"**{col}**:\n"
+                for stat_name, value in stats.items():
+                    numeric += f"- {stat_name}: {value}\n"
+                numeric += "\n"
+            
+            categorical = ""
+            for col, stats in categoric_stats.items():
+                categorical += f"**{col}**:\n"
+                for stat_name, value in stats.items():
+                    categorical += f"- {stat_name}:\n"
+                    if stat_name == 'unique_values':
+                        for val in value:
+                            categorical += f"  - {val}\n"
+                    elif stat_name == 'value_counts':
+                        for val, count in value.items():
+                            categorical += f"  - {val}: {count}\n"
+                    else:
+                        categorical += f"  - {value}\n"
+                categorical += "\n"
+            
+            missing = ""
+            for col, count in missing_values.items():
+                missing += f"- {col}: {count}\n" 
+
+            correlation_matrix = utils.correlation_matrix(data)
+            
+            return numeric, categorical, missing, correlation_matrix
+        
         with gr.Tab("Data Upload"):
             with gr.Row():
                 with gr.Column():
@@ -87,7 +144,7 @@ def create_dashboard():
                     upload_btn.click(
                         fn = load_data,
                         inputs = [file_input],
-                        outputs = [df_state, gr.Textbox(label="Upload Status", lines=2)],
+                        outputs = [df_state, gr.Textbox(label="Upload Status", lines=2), missing_values],
                     )
                 with gr.Column():
                     
@@ -130,8 +187,20 @@ def create_dashboard():
             
         
         with gr.Tab("Statistics"):
-            # Summary statistics and profiling
-            pass
+            #Automated statistics
+            gr.Markdown("## Summary Statistics of the Dataset")
+            stats_btn = gr.Button("Compute Statistics")
+            numeric_textbox = gr.Textbox(label="Numeric Statistics", lines=10)
+            categoric_textbox = gr.Textbox(label="Categorical Statistics", lines=10)
+            missing_values_output = gr.Textbox(label="Missing Values Statistics Before Dataset for cleaned", lines=10)
+            correlation_matrix_output = gr.Matrix(label="Correlation Matrix Heatmap")
+
+            stats_btn.click(
+                fn = compute_statistics,
+                inputs = [df_state, missing_values],
+                outputs = [numeric_textbox, categoric_textbox, missing_values_output, correlation_matrix_output]
+            )
+            
         
         with gr.Tab("Filter & Explore"):
             # Interactive filtering
