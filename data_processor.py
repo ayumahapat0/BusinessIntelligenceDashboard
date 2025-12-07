@@ -39,8 +39,14 @@ def load_clean_data(file):
         missing_values = data.isnull().sum().to_dict()
 
         numeric_cols = data.select_dtypes(include=['number']).columns
+        categorical_cols = data.select_dtypes(include=['category', 'object'])
         for col in numeric_cols:
             data[col] = data[col].fillna(data[col].mean())
+        
+        for col in categorical_cols:
+            if "date" in (str(col)):
+                data[col] = pd.to_datetime(data[col])
+        
 
         # Drop rows with any remaining missing values
         data = data.dropna().reset_index(drop=True)
@@ -142,9 +148,11 @@ def categorical_filter(data, column, selected_categories):
 
     if data is None or column not in data.columns or not pd.api.types.is_categorical_dtype(data[column]) and not pd.api.types.is_object_dtype(data[column]):
         return data
-
+    
     if selected_categories and len(selected_categories) > 0:
-        filtered_data = data[data[column].isin(selected_categories)]
+        data_copy = data.copy()
+        data_copy[column] = data_copy[column].astype(str)
+        filtered_data = data[data_copy[column].isin(selected_categories)]
         return filtered_data
     else:
         return data
@@ -247,8 +255,16 @@ def get_filtered_data_row_count(data):
         return 0
 
 
+def export_data(data):
+    
+    if data is None:
+        return None
+    
+    file_path = "output_data.csv"
+    
+    data.to_csv(file_path, index=False)
 
-
+    return file_path
 
     
 

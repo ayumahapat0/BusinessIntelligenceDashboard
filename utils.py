@@ -6,12 +6,10 @@ Categoric: Mode, unique values, mode
 Missing Values: Count
 """
 
-
-
 import pandas as pd
 
 
-def compute_numeric_stats(data: pd.DataFrame, column: str) -> dict:
+def compute_numeric_stats(data, column):
     """
     Compute basic statistics for a numeric column.
 
@@ -37,7 +35,7 @@ def compute_numeric_stats(data: pd.DataFrame, column: str) -> dict:
         stats['75%'] = float(data[column].quantile(0.75))
     return stats
 
-def compute_categoric_stats(data: pd.DataFrame, column: str) -> dict:
+def compute_categoric_stats(data, column):
     """
     Compute basic statistics for a categorical column.
 
@@ -57,7 +55,7 @@ def compute_categoric_stats(data: pd.DataFrame, column: str) -> dict:
         stats['value_counts'] = data[column].value_counts().to_dict()
     return stats
 
-def missing_values_count(file: any) -> dict:
+def missing_values_count(file):
     """
     Compute the count of missing values for each column.
 
@@ -83,7 +81,7 @@ def missing_values_count(file: any) -> dict:
         missing_values = data.isnull().sum().to_dict()
     return missing_values
 
-def correlation_matrix(data: pd.DataFrame) -> pd.DataFrame:
+def correlation_matrix(data):
     """
     Compute the correlation matrix for numeric columns in the dataset.
 

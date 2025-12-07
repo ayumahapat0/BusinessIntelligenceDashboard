@@ -22,6 +22,13 @@ def create_dashboard():
 
         current_filter = gr.State(None)  # To hold active filters across sessions
 
+        # ============================================================
+        # HELPER FUNCTIONS
+        # ============================================================
+
+        def clear_selection():
+            return None
+
         def load_data(file_input):
             """
             Load and clean data using data_processor module.
@@ -135,13 +142,35 @@ def create_dashboard():
             return numeric, categorical, missing, correlation_matrix
 
         def update_filter_options(data):
-            """Update dropdown with available columns when data is loaded."""
+            """
+            Update dropdown with available columns when data is loaded.
+
+            Args:
+                data:  pandas dataframe
+            Returns:
+                updated choices for columns to filter over
+            """
             if data is None:
                 return gr.update(choices=[]), "0", "0", None, gr.update(choices=[])
             
             total_rows = len(data)
+            select_choices = data.columns.tolist()
+            # Make each choice have format: Column - Dtype
+            for i in range(len(select_choices)):
+                dtype = str(data[select_choices[i]].dtype)
+                # Numeric
+                if pd.api.types.is_numeric_dtype(data[select_choices[i]]):
+                    dtype = "Numeric"
+                # Categorical
+                elif pd.api.types.is_categorical_dtype(data[select_choices[i]]) or pd.api.types.is_object_dtype(data[select_choices[i]]):
+                    dtype = "Categorical"
+                # Datetime
+                elif pd.api.types.is_datetime64_any_dtype(data[select_choices[i]]):
+                    dtype = "Datetime"
+                select_choices[i] = f"{select_choices[i]} - {dtype}"            
+
             return (
-                gr.update(choices=data.columns.tolist()),
+                gr.update(choices=select_choices),
                 str(total_rows),
                 str(total_rows),
                 data.head(100),
@@ -149,9 +178,18 @@ def create_dashboard():
             )
         
         def update_inputs_for_column(data, column):
-            """Update the input fields based on the selected column type."""
+            """Update the input fields based on the selected column type
+
+                Args: 
+                    data: pandas dataframe
+                    column: column to filter on
+                Returns:
+                    updated inputs for filtering
+            """
             if data is None or not column:
                 return gr.update(), gr.update(), gr.update(choices=[]), gr.update(), gr.update()
+            
+            column = column.split(" - ")[0]  # Extract actual column name 
             
             numeric_cols, categorical_cols, datetime_cols = utils.get_data_cols(data)
             
@@ -215,9 +253,22 @@ def create_dashboard():
                 return gr.update(), gr.update(), gr.update(choices=[]), gr.update(), gr.update()
         
         def add_numeric_filter_to_state(data, column, num_min, num_max):
-            """Apply a numeric filter to a single column."""
+            """Apply a numeric filter to a single column
+
+                Args:
+                    data: pandas dataframe
+                    column: column to filter on
+                    num_min: min value
+                    num_max: max value
+                Returns: 
+                    filter_config: filter configuration
+                    filtered_data: filtered data
+                    row count of filtered data
+            """
             if data is None or not column:
                 return None, None, "0"
+            
+            column = column.split(" - ")[0]  # Extract actual column name
             
             # Validate column is numeric
             numeric_cols, _, _ = utils.get_data_cols(data)
@@ -245,9 +296,21 @@ def create_dashboard():
             return filter_config, filtered_data.head(100), str(row_count)
         
         def add_categorical_filter_to_state(data, column, selected_values):
-            """Apply a categorical filter to a single column."""
+            """Apply a numeric filter to a single column
+
+                Args:
+                    data: pandas dataframe
+                    column: column to filter on
+                    selected_values: selected values to find
+                Returns: 
+                    filter_config: filter configuration
+                    filtered_data: filtered data
+                    row count of filtered data
+            """
             if data is None or not column or not selected_values:
                 return None, None, "0"
+            
+            column = column.split(" - ")[0]  # Extract actual column name
             
             # Validate column is categorical
             _, categorical_cols, _ = utils.get_data_cols(data)
@@ -271,9 +334,22 @@ def create_dashboard():
             return filter_config, filtered_data.head(100), str(row_count)
         
         def add_date_filter_to_state(data, column, start_date, end_date):
-            """Apply a date filter to a single column."""
+            """Apply a numeric filter to a single column
+
+                Args:
+                    data: pandas dataframe
+                    column: column to filter on
+                    start_date: starting date
+                    end_date: ending date
+                Returns: 
+                    filter_config: filter configuration
+                    filtered_data: filtered data
+                    row count of filtered data
+            """
             if data is None or not column:
                 return None, None, "0"
+            
+            column = column.split(" - ")[0]  # Extract actual column name
             
             # Validate column is datetime
             _, _, datetime_cols = utils.get_data_cols(data)
@@ -298,7 +374,13 @@ def create_dashboard():
             return filter_config, filtered_data.head(100), str(row_count)
         
         def clear_current_filter(data):
-            """Clear the current filter and show original data."""
+            """Clear the current filter and show original data
+
+                Args:
+                    data: pandas dataframe
+                Returns:
+                    resetted dataframe with resetted total rows
+            """
             if data is None:
                 return None, None, "0"
             
@@ -307,13 +389,18 @@ def create_dashboard():
         
 
         def update_visualization_options(data):
-            """Update visualization dropdowns when data is loaded."""
+            """Update visualization dropdowns when data is loaded
+
+                Args:
+                    data: pandas dataframe
+                Returns:
+                    updated visualization inputs
+            """
             if data is None:
                 empty = gr.update(choices=[])
                 return empty, empty, empty, empty, empty, empty, empty
             
             numeric_cols, categorical_cols, datetime_cols = utils.get_data_cols(data)
-            all_cols = data.columns.tolist()
             
             return (
                 gr.update(choices=datetime_cols if datetime_cols else []),  # ts_date_col
@@ -321,8 +408,8 @@ def create_dashboard():
                 gr.update(choices=numeric_cols if numeric_cols else []),    # dist_col
                 gr.update(choices=categorical_cols if categorical_cols else []),  # cat_col
                 gr.update(choices=numeric_cols if numeric_cols else []),    # cat_value_col
-                gr.update(choices=all_cols),  # scatter_x_col
-                gr.update(choices=all_cols)   # scatter_y_col
+                gr.update(choices=numeric_cols if numeric_cols else []),  # scatter_x_col
+                gr.update(choices=numeric_cols if numeric_cols else [])   # scatter_y_col
             )
         
         with gr.Tab("Data Upload"):
@@ -379,11 +466,15 @@ def create_dashboard():
                         inputs = [df_state, num_rows_input, first_checkbox, last_checkbox],
                         outputs = [first_rows_preview, last_rows_preview],
                     )
-            
+
+        # ============================================================
+        # STATISTICS
+        # ============================================================
         
         with gr.Tab("Statistics"):
             #Automated statistics
             gr.Markdown("## Summary Statistics of the Dataset")
+            gr.Markdown("## You must upload data before using this section")
             stats_btn = gr.Button("Compute Statistics")
             numeric_textbox = gr.Textbox(label="Numeric Statistics", lines=10)
             categoric_textbox = gr.Textbox(label="Categorical Statistics", lines=10)
@@ -395,11 +486,17 @@ def create_dashboard():
                 inputs = [df_state, missing_values],
                 outputs = [numeric_textbox, categoric_textbox, missing_values_output, correlation_matrix_output]
             )
+
+        # ============================================================
+        # FILTERING
+        # ============================================================
             
         
         with gr.Tab("Filter & Explore"):
             gr.Markdown("## Filter and Explore Data")
+            gr.Markdown("## You must upload data before using this section")
             gr.Markdown("### Filter one column at a time. Select a column and use the appropriate filter type.")
+            gr.Markdown("### After applying a filter, if you want to apply another filter, you must use the reset filter button to continue.")
             
             with gr.Row():
                 # Left Panel: Filter Controls
@@ -410,39 +507,44 @@ def create_dashboard():
                         choices=[],
                         interactive=True
                     )
+                    clear_button_1 = gr.Button("Deselect")
                     
                     # Numeric Filter Section
-                    gr.Markdown("**Numeric Filter (Range)**")
-                    with gr.Row():
-                        numeric_min_input = gr.Number(label="Min Value", interactive=True)
-                        numeric_max_input = gr.Number(label="Max Value", interactive=True)
-                    apply_numeric_filter_btn = gr.Button("Apply Numeric Filter", variant="primary", size="sm")
-                    
+                    with gr.Column(visible=True):
+                        gr.Markdown("**Numeric Filter (Range)**")
+                        with gr.Row():
+                            numeric_min_input = gr.Number(label="Min Value", interactive=True)
+                            numeric_max_input = gr.Number(label="Max Value", interactive=True)
+                        apply_numeric_filter_btn = gr.Button("Apply Numeric Filter", variant="primary", size="sm")
+                        
                     # Categorical Filter Section
-                    gr.Markdown("**Categorical Filter (Multi-Select)**")
-                    category_dropdown = gr.Dropdown(
-                        label="Select Values",
-                        choices=[],
-                        multiselect=True,
-                        interactive=True
-                    )
-                    apply_categorical_filter_btn = gr.Button("Apply Categorical Filter", variant="primary", size="sm")
-                    
+                    with gr.Group(visible=True):
+                        gr.Markdown("**Categorical Filter (Multi-Select)**")
+                        category_dropdown = gr.Dropdown(
+                            label="Select Values",
+                            choices=[],
+                            multiselect=True,
+                            interactive=True
+                        )
+
+                        apply_categorical_filter_btn = gr.Button("Apply Categorical Filter", variant="primary", size="sm")
+                        
                     # Date Filter Section
-                    gr.Markdown("**Date Filter (Date Range)**")
-                    with gr.Row():
-                        date_start = gr.Textbox(
-                            label="Start Date (YYYY-MM-DD)",
-                            placeholder="2024-01-01",
-                            interactive=True
-                        )
-                        date_end = gr.Textbox(
-                            label="End Date (YYYY-MM-DD)",
-                            placeholder="2024-12-31",
-                            interactive=True
-                        )
-                    apply_date_filter_btn = gr.Button("Apply Date Filter", variant="primary", size="sm")
-                    
+                    with gr.Group(visible=True):
+                        gr.Markdown("**Date Filter (Date Range)**")
+                        with gr.Row():
+                            date_start = gr.Textbox(
+                                label="Start Date (YYYY-MM-DD)",
+                                placeholder="2024-01-01",
+                                interactive=True
+                            )
+                            date_end = gr.Textbox(
+                                label="End Date (YYYY-MM-DD)",
+                                placeholder="2024-12-31",
+                                interactive=True
+                            )
+                        apply_date_filter_btn = gr.Button("Apply Date Filter", variant="primary", size="sm")
+                        
                     # Filter Management
                     gr.Markdown("### Manage Filter")
                     clear_filter_btn = gr.Button("Clear Current Filter", variant="secondary", size="sm")
@@ -470,10 +572,18 @@ def create_dashboard():
                         interactive=False,
                         wrap=True
                     )
+
+                    export_data_btn = gr.Button("Export Data")
             
             # ============================================================
             # FILTER EVENT HANDLERS
             # ============================================================
+
+            # Delete Column Selection for filtering
+            clear_button_1.click(
+                fn = clear_selection,
+                outputs=[filter_column_select],
+            )
             
             # Update filter options when data is loaded
             df_state.change(
@@ -518,11 +628,22 @@ def create_dashboard():
                 inputs=[df_state],
                 outputs=[current_filter, filtered_data_display, filtered_row_count]
             )
+
+            # Export Data
+            export_data_btn.click(
+                fn = data_processor.export_data,
+                inputs=[filtered_data_display],
+                outputs=[gr.File(label="CSV File")]
+            )
+        # ============================================================
+        # VISUALIZATION
+        # ============================================================
         
         with gr.Tab("Visualizations"):
             gr.Markdown("## Data Visualizations")
+            gr.Markdown("## You must upload data before using this section")
             gr.Markdown("### Create various charts to explore your data visually")
-            
+
             with gr.Tabs():
                 # Time Series Plot
                 with gr.Tab("Time Series"):
@@ -530,16 +651,18 @@ def create_dashboard():
                     with gr.Row():
                         with gr.Column(scale=1):
                             ts_date_col = gr.Dropdown(label="Date Column", choices=[])
+                            clear_button_2 = gr.Button("Deselect")
                             ts_value_col = gr.Dropdown(label="Value Column", choices=[])
+                            clear_button_3 = gr.Button("Deselect")
                             ts_agg_method = gr.Dropdown(
                                 label="Aggregation Method",
                                 choices=["sum", "mean", "count", "median", "min", "max"],
                                 value="sum"
                             )
-                            ts_plot_btn = gr.Button("Generate Time Series Plot", variant="primary")
+                            ts_plot_btn = gr.Button("Generate and Download Time Series Plot", variant="primary")
                         with gr.Column(scale=2):
                             ts_plot_output = gr.Plot(label="Time Series Plot")
-                            # ts_export_btn = gr.Button("Export as PNG", size="sm")
+                            output_file = gr.File(label="Download PNG")               
                 
                 # Distribution Plot
                 with gr.Tab("Distribution"):
@@ -547,6 +670,7 @@ def create_dashboard():
                     with gr.Row():
                         with gr.Column(scale=1):
                             dist_col = gr.Dropdown(label="Numeric Column", choices=[])
+                            clear_button_4 = gr.Button("Deselect")
                             dist_type = gr.Radio(
                                 label="Plot Type",
                                 choices=["Histogram", "Box Plot"],
@@ -555,15 +679,23 @@ def create_dashboard():
                             dist_plot_btn = gr.Button("Generate Distribution Plot", variant="primary")
                         with gr.Column(scale=2):
                             dist_plot_output = gr.Plot(label="Distribution Plot")
-                            # dist_export_btn = gr.Button("Export as PNG", size="sm")
                 
                 # Category Analysis
                 with gr.Tab("Category Analysis"):
                     gr.Markdown("**Analyze categorical data**")
+                    gr.Markdown("**If nothing is inputed, it will just create a chart for counts for the specified column**")
+
                     with gr.Row():
                         with gr.Column(scale=1):
                             cat_col = gr.Dropdown(label="Categorical Column", choices=[])
+                            clear_button_5 = gr.Button("Deselect")
                             cat_value_col = gr.Dropdown(label="Value Column (Optional)", choices=[])
+                            clear_button_6 = gr.Button("Deselect")
+                            cat_agg_method = gr.Dropdown(
+                                label="Aggregation Method",
+                                choices=["count", "sum", "mean", "median"],
+                                value="count"
+                            )
                             cat_type = gr.Radio(
                                 label="Chart Type",
                                 choices=["Bar Chart", "Pie Chart"],
@@ -572,11 +704,11 @@ def create_dashboard():
                             cat_plot_btn = gr.Button("Generate Category Plot", variant="primary")
                         with gr.Column(scale=2):
                             cat_plot_output = gr.Plot(label="Category Plot")
-                            # cat_export_btn = gr.Button("Export as PNG", size="sm")
                 
                 # Scatter Plot / Correlation
                 with gr.Tab("Relationships"):
                     gr.Markdown("**Explore relationships between variables**")
+                    gr.Markdown("The X and Y columns are only used for the Scatter Plot")
                     with gr.Row():
                         with gr.Column(scale=1):
                             rel_type = gr.Radio(
@@ -585,11 +717,55 @@ def create_dashboard():
                                 value="Scatter Plot"
                             )
                             scatter_x_col = gr.Dropdown(label="X-Axis Column", choices=[])
+                            clear_button_7 = gr.Button("Deselect")
                             scatter_y_col = gr.Dropdown(label="Y-Axis Column", choices=[])
+                            clear_button_8 = gr.Button("Deselect")
                             rel_plot_btn = gr.Button("Generate Plot", variant="primary")
                         with gr.Column(scale=2):
                             rel_plot_output = gr.Plot(label="Relationship Plot")
-                            # rel_export_btn = gr.Button("Export as PNG", size="sm")
+            
+            # ============================================================
+            # VISUALIZATION EVENT HANDLERS
+            # ============================================================
+
+            # Delete Date Column Selection
+            clear_button_2.click(
+                fn=clear_selection,
+                outputs=[ts_date_col]
+            )
+
+            # Delete Date Value Column Selection
+            clear_button_3.click(
+                fn=clear_selection,
+                outputs=[ts_value_col]
+            )
+
+            # Delete Distribution Column Selection
+            clear_button_4.click(
+                fn=clear_selection,
+                outputs=[dist_col]
+            )
+
+            # Delete Category Column Selection
+            clear_button_5.click(
+                fn=clear_selection,
+                outputs=[cat_col]
+            )
+            # Delete Category Value Column Selection
+            clear_button_6.click(
+                fn=clear_selection,
+                outputs=[cat_value_col]
+            )
+            # Delete Scatter X Column Selection
+            clear_button_7.click(
+                fn=clear_selection,
+                outputs=[scatter_x_col]
+            )
+            # Delete Scatter Y Column Selection
+            clear_button_8.click(
+                fn=clear_selection,
+                outputs=[scatter_y_col]
+            )
             
             # Update dropdowns when data is loaded
             df_state.change(
@@ -603,14 +779,8 @@ def create_dashboard():
             ts_plot_btn.click(
                 fn=visualization.time_series_plot,
                 inputs=[df_state, ts_date_col, ts_value_col, ts_agg_method],
-                outputs=[ts_plot_output]
+                outputs=[ts_plot_output, output_file],
             )
-            
-            # ts_export_btn.click(
-            #     fn=visualization.export_plot_as_png,
-            #     inputs=[ts_plot_output],
-            #     outputs=[gr.File(label="Download PNG")]
-            # )
             
             # Distribution Plot Events
             dist_plot_btn.click(
@@ -619,24 +789,12 @@ def create_dashboard():
                 outputs=[dist_plot_output]
             )
             
-            # dist_export_btn.click(
-            #     fn=visualization.export_plot_as_png,
-            #     inputs=[dist_plot_output],
-            #     outputs=[gr.File(label="Download PNG")]
-            # )
-            
             # Category Plot Events
             cat_plot_btn.click(
                 fn=visualization.category_analysis_plot,
-                inputs=[df_state, cat_col, cat_value_col, cat_type],
+                inputs=[df_state, cat_col, cat_value_col, cat_agg_method, cat_type],
                 outputs=[cat_plot_output]
             )
-            
-            # cat_export_btn.click(
-            #     fn=visualization.export_plot_as_png,
-            #     inputs=[cat_plot_output],
-            #     outputs=[gr.File(label="Download PNG")]
-            # )
             
             # Relationship Plot Events
             rel_plot_btn.click(
@@ -644,15 +802,14 @@ def create_dashboard():
                 inputs=[df_state, rel_type, scatter_x_col, scatter_y_col],
                 outputs=[rel_plot_output]
             )
-            
-            # rel_export_btn.click(
-            #     fn=visualization.export_plot_as_png,
-            #     inputs=[rel_plot_output],
-            #     outputs=[gr.File(label="Download PNG")]
-            # )
         
+        # ============================================================
+        # INSIGHTS
+        # ============================================================
+
         with gr.Tab("Insights"):
             gr.Markdown("## Automated Insights")
+            gr.Markdown("## You must upload data before using this section")
             gr.Markdown("### Discover patterns, trends, and anomalies in your data")
             
             insights_btn = gr.Button("Generate Insights", variant="primary")
