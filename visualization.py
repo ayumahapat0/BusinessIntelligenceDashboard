@@ -3,7 +3,6 @@ This Modules handles creating visualizations
 for the Business Intelligence Dashboard.
 """
 
-import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import utils
