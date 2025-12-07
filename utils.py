@@ -99,6 +99,49 @@ def correlation_matrix(data: pd.DataFrame) -> pd.DataFrame:
     corr_matrix = numeric_data.corr()
     return corr_matrix
 
+def get_data_cols(data):
+    """
+    Get the list of column names in the dataset.
+
+    Args:
+        data: pandas DataFrame
+    Returns:
+        
+    """
+    numeric_cols = []
+    categorical_cols = []
+    datetime_cols = []
+
+    if data is not None:
+        numeric_cols = data.select_dtypes(include=['number']).columns.tolist()
+        categorical_cols = data.select_dtypes(include=['object', 'category']).columns.tolist()
+        datetime_cols = data.select_dtypes(include=['datetime']).columns.tolist()
+        return numeric_cols, categorical_cols, datetime_cols
+    
+    else:
+        return None, None, None
+
+def get_date_range(data, column):
+    """
+    Get the minimum and maximum dates from a datetime column.
+
+    Args:
+        data: pandas DataFrame
+        column: Column name for which to get the date range.
+    Returns:
+        A tuple containing the minimum and maximum dates.
+    """
+    if data is not None and column in data.columns:
+        if column in data.select_dtypes(include=['datetime']).columns:
+            min_date = data[column].min()
+            max_date = data[column].max()
+            return min_date, max_date
+        else:
+            return None, None
+    else:
+        return None, None
+        
+
 
 
 
